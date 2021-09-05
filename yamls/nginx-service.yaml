@@ -4,7 +4,6 @@ metadata:
   labels:
     app: nginx
   name: nginx
-  namespace: default
 spec:
   ports:
   - port: 80
@@ -12,4 +11,57 @@ spec:
     targetPort: 80
   selector:
     app: nginx
-  type: NodePort
+  type: ClusterIP
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: demo-redirect-scheme
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+    port: "443"
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: demo-strip-path-prefix
+spec:
+  stripPrefix:
+    prefixes:
+      - /nginx210905
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: demo-http
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`dev.cams7.ml`)
+      kind: Rule
+      middlewares:
+        - name: demo-redirect-scheme      
+      services:
+        - name: nginx
+          port: 80
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: demo-https
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`dev.cams7.ml`) && PathPrefix(`/nginx210905`)
+      kind: Rule
+      middlewares:
+        - name: demo-strip-path-prefix
+      services:
+        - name: nginx
+          port: 80
+  tls:
+    secretName: dev.cams7.ml
